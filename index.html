@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="TV Remote">
+<meta name="theme-color" content="#000000">
+<link rel="apple-touch-icon" href="icon.png">
+<link rel="manifest" href="manifest.json">
+<title>TV Remote</title>
+<style>
+  :root { --bg:#000; --pad:#1c1c1e; --btn:#2c2c2e; --ink:#f5f5f7; --dim:#8e8e93; --accent:#0a84ff; --ok:#30d158; --bad:#ff453a; }
+  * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; -webkit-user-select:none; user-select:none; }
+  html,body { margin:0; background:var(--bg); color:var(--ink); font:16px -apple-system, "SF Pro Text", system-ui, sans-serif; }
+  body { padding:calc(env(safe-area-inset-top) + 10px) 18px calc(env(safe-area-inset-bottom) + 16px); min-height:100vh; display:flex; flex-direction:column; gap:14px; }
+  header { display:flex; align-items:center; justify-content:space-between; }
+  header h1 { font-size:17px; font-weight:600; margin:0; }
+  #status { font-size:13px; color:var(--dim); display:flex; align-items:center; gap:6px; }
+  #status i { width:8px; height:8px; border-radius:50%; background:var(--bad); display:inline-block; }
+  #status.on i { background:var(--ok); }
+  button { font:inherit; color:var(--ink); background:var(--btn); border:0; border-radius:14px; padding:12px; cursor:pointer; }
+  button:active { opacity:.6; transform:scale(.97); }
+  .icon { width:26px; height:26px; fill:none; stroke:currentColor; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; }
+  #pad { position:relative; height:290px; border-radius:28px; background:var(--pad); touch-action:none; display:flex; align-items:center; justify-content:center; color:var(--dim); font-size:13px; }
+  #pad .ring { position:absolute; inset:18px; border-radius:22px; }
+  #pad .hint { pointer-events:none; text-align:center; line-height:1.6; }
+  #pad.flash { background:#2a2a2d; }
+  .row { display:grid; gap:12px; }
+  .r3 { grid-template-columns:repeat(3,1fr); }
+  .r4 { grid-template-columns:repeat(4,1fr); }
+  .round { height:64px; border-radius:50%; display:flex; align-items:center; justify-content:center; aspect-ratio:1; margin:auto; width:64px; }
+  .vol { display:flex; flex-direction:column; border-radius:32px; background:var(--btn); width:64px; margin:auto; overflow:hidden; }
+  .vol button { background:transparent; border-radius:0; height:56px; }
+  .label { font-size:11px; color:var(--dim); text-align:center; margin-top:4px; }
+  #type { display:flex; gap:8px; }
+  #text { flex:1; min-width:0; font:inherit; font-size:17px; color:var(--ink); background:var(--pad); border:1px solid #3a3a3c; border-radius:14px; padding:12px 14px; -webkit-user-select:text; user-select:text; }
+  #imeNote { font-size:12px; color:var(--dim); margin-top:-6px; }
+  #imeNote.live { color:var(--ok); }
+  #apps { display:grid; grid-template-columns:repeat(4,1fr); gap:10px; }
+  #apps button { font-size:12px; padding:14px 4px; min-height:56px; line-height:1.2; }
+  #apps button.cf { background:#3a3a3c; font-weight:600; }
+  details { background:var(--pad); border-radius:14px; padding:10px 14px; }
+  summary { color:var(--dim); font-size:14px; }
+  details input { width:100%; font:inherit; color:var(--ink); background:var(--btn); border:0; border-radius:10px; padding:10px; margin:8px 0; direction:ltr; -webkit-user-select:text; user-select:text; }
+  details p { font-size:12px; color:var(--dim); line-height:1.6; margin:6px 0; }
+  #toast { position:fixed; left:50%; bottom:calc(env(safe-area-inset-bottom) + 24px); transform:translateX(-50%); background:#3a3a3c; padding:10px 16px; border-radius:20px; font-size:14px; opacity:0; transition:opacity .2s; pointer-events:none; max-width:90%; text-align:center; }
+  #toast.show { opacity:1; }
+  #mic.listening { background:var(--bad); }
+</style>
+</head>
+<body>
+<header>
+  <h1>TV Remote</h1>
+  <div id="status"><i></i><span>غير متصل</span></div>
+</header>
+
+<div id="pad"><div class="hint">اسحب للأسهم · اضغط مرة = OK</div></div>
+
+<div class="row r4">
+  <div><button class="round" data-key="KEY_RETURN" aria-label="رجوع"><svg class="icon" viewBox="0 0 24 24"><path d="M9 7 4 12l5 5M4 12h11a5 5 0 0 1 0 10h-2"/></svg></button><div class="label">رجوع</div></div>
+  <div><button class="round" id="cfHome" aria-label="CleanFrame"><svg class="icon" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="13" rx="2"/><path d="M8 21h8"/></svg></button><div class="label">CleanFrame</div></div>
+  <div><button class="round" data-key="KEY_PLAY_BACK" aria-label="تشغيل"><svg class="icon" viewBox="0 0 24 24"><path d="M5 5v14l8-7zM15 5v14M19 5v14"/></svg></button><div class="label">تشغيل/إيقاف</div></div>
+  <div class="vol"><button data-key="KEY_VOLUP" aria-label="صوت +">＋</button><button data-key="KEY_VOLDOWN" aria-label="صوت -">－</button></div>
+</div>
+
+<div class="row r4">
+  <div><button class="round" data-key="KEY_HOME" aria-label="Samsung Home"><svg class="icon" viewBox="0 0 24 24"><path d="M3 11 12 4l9 7v9h-6v-6H9v6H3z"/></svg></button><div class="label">Samsung</div></div>
+  <div><button class="round" id="mic" aria-label="ميكروفون"><svg class="icon" viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></button><div class="label">صوت</div></div>
+  <div><button class="round" data-key="KEY_MUTE" aria-label="كتم"><svg class="icon" viewBox="0 0 24 24"><path d="M4 9v6h4l5 4V5L8 9zM17 9l4 6M21 9l-4 6"/></svg></button><div class="label">كتم</div></div>
+  <div><button class="round" data-key="KEY_POWER" aria-label="باور"><svg class="icon" viewBox="0 0 24 24"><path d="M12 3v9M6.3 6.3a8 8 0 1 0 11.4 0"/></svg></button><div class="label">باور</div></div>
+</div>
+
+<div>
+  <div id="type">
+    <input id="text" type="text" placeholder="اكتب هنا… يظهر على التلفزيون" autocomplete="off" autocorrect="off" enterkeyhint="send">
+    <button id="send">إرسال</button>
+  </div>
+</div>
+<div id="imeNote">افتح خانة كتابة على التلفزيون (بحث مثلاً) ثم اكتب هنا.</div>
+
+<div id="apps"></div>
+
+<details>
+  <summary>إرسال رابط للتلفزيون</summary>
+  <input id="url" type="url" placeholder="https://..." inputmode="url">
+  <button id="openUrl" style="width:100%">افتح في متصفح التلفزيون</button>
+</details>
+
+<details id="setup">
+  <summary>الإعداد</summary>
+  <p>عنوان التلفزيون (IP):</p>
+  <input id="ip" type="text" inputmode="decimal" value="192.168.1.5">
+  <button id="trust" style="width:100%;margin-bottom:8px">1) وثّق شهادة التلفزيون</button>
+  <button id="connect" style="width:100%">2) اتصال</button>
+  <p>أول مرة: اضغط (1) ووافق على التحذير ثم ارجع هنا، واضغط (2) ووافق على رسالة «سماح» على التلفزيون. الاتصال مباشر داخل شبكة البيت فقط.</p>
+  <button id="forget" style="width:100%;background:#3a1d1d">نسيان هذا التلفزيون</button>
+</details>
+
+<div id="toast"></div>
+
+<script>
+(function () {
+  'use strict';
+  var NAME = btoa('iPhone Remote');
+  var CLEANFRAME = 'i6LoO8wbEB.CleanFrame';
+  // Shortcut order; matched against the TV's installed apps by name.
+  var FAV = [
+    ['Netflix', /^netflix/i], ['Shahid', /shahid/i], ['Prime Video', /prime\s*video/i], ['Disney+', /disney/i],
+    ['OSN+', /^osn/i], ['Apple TV', /^apple\s*tv$/i], ['WATCH IT', /watch\s*it/i], ['YouTube', /^youtube$/i],
+    ['Yango Play', /yango/i], ['المتصفح', /^(internet|browser|samsung internet)$/i]
+  ];
+  var VOICE = [
+    [/نت ?فل?كس|netflix/i, 'Netflix'], [/شاهد|shahid/i, 'Shahid'], [/برايم|prime/i, 'Prime Video'], [/ديزني|disney/i, 'Disney+'],
+    [/osn|او اس ان/i, 'OSN+'], [/ابل|آبل|apple/i, 'Apple TV'], [/ووتش|watch ?it/i, 'WATCH IT'], [/يوتيوب|youtube/i, 'YouTube'],
+    [/يانجو|yango/i, 'Yango Play'], [/متصفح|browser|انترنت|إنترنت/i, 'المتصفح']
+  ];
+  var ws = null, apps = {}, ipEl = document.getElementById('ip'), statusEl = document.getElementById('status');
+  var store = { get: function (k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
+                set: function (k, v) { try { localStorage.setItem(k, v); } catch (e) {} },
+                del: function (k) { try { localStorage.removeItem(k); } catch (e) {} } };
+  ipEl.value = store.get('tvip') || ipEl.value;
+
+  function toast(msg) { var t = document.getElementById('toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toast.t); toast.t = setTimeout(function () { t.classList.remove('show'); }, 2200); }
+  function setStatus(on, text) { statusEl.className = on ? 'on' : ''; statusEl.querySelector('span').textContent = text; }
+  function ip() { return ipEl.value.trim(); }
+  function validIp(v) { return /^(\d{1,3}\.){3}\d{1,3}$/.test(v); }
+
+  function connect() {
+    var host = ip();
+    if (!validIp(host)) { toast('اكتب IP صحيح'); return; }
+    store.set('tvip', host);
+    if (ws) { try { ws.onclose = null; ws.close(); } catch (e) {} }
+    var token = store.get('token:' + host);
+    var url = 'wss://' + host + ':8002/api/v2/channels/samsung.remote.control?name=' + NAME + (token ? '&token=' + encodeURIComponent(token) : '');
+    setStatus(false, 'جارِ الاتصال…');
+    try { ws = new WebSocket(url); } catch (e) { setStatus(false, 'فشل'); toast('المتصفح رفض الاتصال'); return; }
+    ws.onmessage = function (ev) {
+      var m; try { m = JSON.parse(ev.data); } catch (e) { return; }
+      if (m.event === 'ms.channel.connect') {
+        if (m.data && m.data.token) store.set('token:' + host, m.data.token);
+        setStatus(true, 'متصل'); document.getElementById('setup').open = false; loadApps();
+      } else if (m.event === 'ms.channel.unauthorized') {
+        setStatus(false, 'مرفوض'); toast('التلفزيون رفض الاتصال — اسمح للآيفون من التلفزيون');
+      } else if (m.event === 'ed.installedApp.get') {
+        apps = {}; ((m.data && m.data.data) || []).forEach(function (a) { apps[a.appId] = a.name; }); renderApps();
+      } else if (m.event === 'ms.remote.imeStart' || m.event === 'ms.remote.imeUpdate') {
+        imeNote(true);
+      } else if (m.event === 'ms.remote.imeEnd') {
+        imeNote(false);
+      }
+    };
+    ws.onerror = function () { setStatus(false, 'خطأ'); toast('لو أول مرة: اضغط «وثّق شهادة التلفزيون»'); document.getElementById('setup').open = true; };
+    ws.onclose = function () { setStatus(false, 'غير متصل'); };
+  }
+  function send(obj) {
+    if (!ws || ws.readyState !== 1) { toast('غير متصل'); connect(); return false; }
+    ws.send(JSON.stringify(obj)); return true;
+  }
+  function key(k) { if (navigator.vibrate) navigator.vibrate(8); send({ method: 'ms.remote.control', params: { Cmd: 'Click', DataOfCmd: k, Option: 'false', TypeOfRemote: 'SendRemoteKey' } }); }
+  function b64(s) { return btoa(unescape(encodeURIComponent(s))); }
+  function sendText(s) { send({ method: 'ms.remote.control', params: { Cmd: b64(s), DataOfCmd: 'base64', TypeOfRemote: 'SendInputString' } }); }
+  function endText() { send({ method: 'ms.remote.control', params: { TypeOfRemote: 'SendInputEnd' } }); }
+  function launch(appId, meta) {
+    var data = { appId: appId, action_type: 'NATIVE_LAUNCH' }; if (meta) data.metaTag = meta;
+    send({ method: 'ms.channel.emit', params: { event: 'ed.apps.launch', to: 'host', data: data } });
+  }
+  function loadApps() { send({ method: 'ms.channel.emit', params: { event: 'ed.installedApp.get', to: 'host' } }); }
+  function findApp(label) {
+    var re = null; FAV.forEach(function (f) { if (f[0] === label) re = f[1]; });
+    if (label === 'المتصفح') return 'org.tizen.browser';
+    for (var id in apps) if (re && re.test(apps[id])) return id;
+    return null;
+  }
+  function renderApps() {
+    var box = document.getElementById('apps'); box.innerHTML = '';
+    var cf = document.createElement('button'); cf.className = 'cf'; cf.textContent = 'CleanFrame'; cf.onclick = function () { launch(CLEANFRAME); }; box.appendChild(cf);
+    FAV.forEach(function (f) {
+      var id = findApp(f[0]); if (!id) return;
+      var b = document.createElement('button'); b.textContent = f[0]; b.onclick = function () { launch(id); toast('فتح ' + f[0]); }; box.appendChild(b);
+    });
+  }
+  function imeNote(live) { var n = document.getElementById('imeNote'); n.className = live ? 'live' : ''; n.textContent = live ? 'كيبورد التلفزيون مفتوح — اكتب الآن' : 'افتح خانة كتابة على التلفزيون (بحث مثلاً) ثم اكتب هنا.'; }
+
+  // Touch pad: swipe = arrows, tap = OK, long swipe repeats.
+  var pad = document.getElementById('pad'), sx = 0, sy = 0, moved = false, rep = null;
+  pad.addEventListener('touchstart', function (e) { var t = e.touches[0]; sx = t.clientX; sy = t.clientY; moved = false; }, { passive: true });
+  pad.addEventListener('touchmove', function (e) {
+    var t = e.touches[0], dx = t.clientX - sx, dy = t.clientY - sy;
+    if (Math.abs(dx) < 34 && Math.abs(dy) < 34) return;
+    moved = true;
+    var k = Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'KEY_RIGHT' : 'KEY_LEFT') : (dy > 0 ? 'KEY_DOWN' : 'KEY_UP');
+    key(k); sx = t.clientX; sy = t.clientY;
+    e.preventDefault();
+  }, { passive: false });
+  pad.addEventListener('touchend', function () { if (!moved) { key('KEY_ENTER'); pad.classList.add('flash'); setTimeout(function () { pad.classList.remove('flash'); }, 120); } });
+  pad.addEventListener('click', function (e) { if (!('ontouchstart' in window)) key('KEY_ENTER'); });
+
+  Array.prototype.forEach.call(document.querySelectorAll('[data-key]'), function (b) { b.addEventListener('click', function () { key(b.getAttribute('data-key')); }); });
+  document.getElementById('cfHome').onclick = function () { launch(CLEANFRAME); toast('فتح CleanFrame'); };
+
+  var text = document.getElementById('text'), tTimer = null;
+  text.addEventListener('input', function () { clearTimeout(tTimer); tTimer = setTimeout(function () { sendText(text.value); }, 250); });
+  function submit() { clearTimeout(tTimer); sendText(text.value); setTimeout(endText, 150); text.value = ''; text.blur(); }
+  document.getElementById('send').onclick = submit;
+  text.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); submit(); } });
+
+  document.getElementById('openUrl').onclick = function () {
+    var u = document.getElementById('url').value.trim();
+    if (!/^https?:\/\//i.test(u)) u = 'https://' + u;
+    if (!/^https?:\/\/[^\s]+$/i.test(u)) { toast('رابط غير صحيح'); return; }
+    launch('org.tizen.browser', u); toast('تم الإرسال للتلفزيون');
+  };
+  document.getElementById('trust').onclick = function () { if (validIp(ip())) location.href = 'https://' + ip() + ':8002/api/v2/'; };
+  document.getElementById('connect').onclick = connect;
+  document.getElementById('forget').onclick = function () { store.del('token:' + ip()); if (ws) ws.close(); toast('تم النسيان'); };
+
+  // Voice: simple free commands via the browser's speech recognition when available.
+  var Rec = window.SpeechRecognition || window.webkitSpeechRecognition, mic = document.getElementById('mic');
+  mic.onclick = function () {
+    if (!Rec) { text.focus(); toast('استخدم زر المايك في كيبورد الآيفون'); return; }
+    var r = new Rec(); r.lang = 'ar-EG'; r.interimResults = false; r.maxAlternatives = 1;
+    mic.classList.add('listening');
+    r.onresult = function (e) {
+      var said = e.results[0][0].transcript.trim(), done = false;
+      VOICE.forEach(function (v) { if (done || !v[0].test(said)) return; var id = findApp(v[1]); if (id) { launch(id); toast('فتح ' + v[1]); done = true; } });
+      if (!done && /كلين|clean|الرئيسية/i.test(said)) { launch(CLEANFRAME); done = true; toast('فتح CleanFrame'); }
+      if (!done) { sendText(said); toast('كتبت: ' + said); }
+    };
+    r.onerror = function () { toast('الميكروفون غير متاح — استخدم مايك الكيبورد'); };
+    r.onend = function () { mic.classList.remove('listening'); };
+    try { r.start(); } catch (e) { mic.classList.remove('listening'); }
+  };
+
+  document.addEventListener('visibilitychange', function () { if (!document.hidden && (!ws || ws.readyState > 1)) connect(); });
+  renderApps(); connect();
+})();
+</script>
+</body>
+</html>
