@@ -110,14 +110,14 @@
   var FAV = [
     ['Netflix', /^netflix/i], ['Shahid', /shahid/i], ['Prime Video', /prime\s*video/i], ['Disney+', /disney/i],
     ['OSN+', /^osn/i], ['Apple TV', /^apple\s*tv$/i], ['WATCH IT', /watch\s*it/i], ['YouTube', /^youtube$/i],
-    ['Yango Play', /yango/i], ['المتصفح', /^(internet|browser|samsung internet)$/i]
+    ['Yango Play', /yango/i], ['المتصفح', /^(internet|browser|samsung internet|الإنترنت|انترنت|إنترنت)$/i]
   ];
   var VOICE = [
     [/نت ?فل?كس|netflix/i, 'Netflix'], [/شاهد|shahid/i, 'Shahid'], [/برايم|prime/i, 'Prime Video'], [/ديزني|disney/i, 'Disney+'],
     [/osn|او اس ان/i, 'OSN+'], [/ابل|آبل|apple/i, 'Apple TV'], [/ووتش|watch ?it/i, 'WATCH IT'], [/يوتيوب|youtube/i, 'YouTube'],
     [/يانجو|yango/i, 'Yango Play'], [/متصفح|browser|انترنت|إنترنت/i, 'المتصفح']
   ];
-  var ws = null, apps = {}, ipEl = document.getElementById('ip'), statusEl = document.getElementById('status');
+  var ws = null, apps = {}, types = {}, ipEl = document.getElementById('ip'), statusEl = document.getElementById('status');
   var store = { get: function (k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
                 set: function (k, v) { try { localStorage.setItem(k, v); } catch (e) {} },
                 del: function (k) { try { localStorage.removeItem(k); } catch (e) {} } };
@@ -145,7 +145,7 @@
       } else if (m.event === 'ms.channel.unauthorized') {
         setStatus(false, 'مرفوض'); toast('التلفزيون رفض الاتصال — اسمح للآيفون من التلفزيون');
       } else if (m.event === 'ed.installedApp.get') {
-        apps = {}; ((m.data && m.data.data) || []).forEach(function (a) { apps[a.appId] = a.name; }); renderApps();
+        apps = {}; types = {}; ((m.data && m.data.data) || []).forEach(function (a) { apps[a.appId] = a.name; types[a.appId] = a.app_type; }); renderApps();
       } else if (m.event === 'ms.remote.imeStart' || m.event === 'ms.remote.imeUpdate') {
         imeNote(true);
       } else if (m.event === 'ms.remote.imeEnd') {
@@ -163,14 +163,23 @@
   function b64(s) { return btoa(unescape(encodeURIComponent(s))); }
   function sendText(s) { send({ method: 'ms.remote.control', params: { Cmd: b64(s), DataOfCmd: 'base64', TypeOfRemote: 'SendInputString' } }); }
   function endText() { send({ method: 'ms.remote.control', params: { TypeOfRemote: 'SendInputEnd' } }); }
+  // Web apps (type 2) use DEEP_LINK, native apps (type 4) NATIVE_LAUNCH; unknown apps also get the REST launch.
   function launch(appId, meta) {
-    var data = { appId: appId, action_type: 'NATIVE_LAUNCH' }; if (meta) data.metaTag = meta;
+    var type = types[appId], action = type === 4 ? 'NATIVE_LAUNCH' : 'DEEP_LINK';
+    var data = { appId: appId, action_type: action }; if (meta) data.metaTag = meta;
     send({ method: 'ms.channel.emit', params: { event: 'ed.apps.launch', to: 'host', data: data } });
+    if (!type && !meta) {
+      try { fetch('https://' + ip() + ':8002/api/v2/applications/' + encodeURIComponent(appId), { method: 'POST', mode: 'no-cors' }).catch(function () {}); } catch (e) {}
+    }
+  }
+  function browserId() {
+    for (var id in apps) if (/^(internet|browser|samsung internet|الإنترنت|انترنت|إنترنت)$/i.test(apps[id])) return id;
+    return '3201907018807';
   }
   function loadApps() { send({ method: 'ms.channel.emit', params: { event: 'ed.installedApp.get', to: 'host' } }); }
   function findApp(label) {
     var re = null; FAV.forEach(function (f) { if (f[0] === label) re = f[1]; });
-    if (label === 'المتصفح') return 'org.tizen.browser';
+    if (label === 'المتصفح') return browserId();
     for (var id in apps) if (re && re.test(apps[id])) return id;
     return null;
   }
@@ -211,7 +220,7 @@
     var u = document.getElementById('url').value.trim();
     if (!/^https?:\/\//i.test(u)) u = 'https://' + u;
     if (!/^https?:\/\/[^\s]+$/i.test(u)) { toast('رابط غير صحيح'); return; }
-    launch('org.tizen.browser', u); toast('تم الإرسال للتلفزيون');
+    launch(browserId(), u); toast('تم الإرسال للتلفزيون');
   };
   document.getElementById('trust').onclick = function () { if (validIp(ip())) location.href = 'https://' + ip() + ':8002/api/v2/'; };
   document.getElementById('connect').onclick = connect;
