@@ -98,6 +98,7 @@
   <button id="trust" style="width:100%;margin-bottom:8px">1) وثّق شهادة التلفزيون</button>
   <button id="connect" style="width:100%">2) اتصال</button>
   <p>أول مرة: اضغط (1) ووافق على التحذير ثم ارجع هنا، واضغط (2) ووافق على رسالة «سماح» على التلفزيون. الاتصال مباشر داخل شبكة البيت فقط.</p>
+  <p id="debug" style="direction:ltr;text-align:left;-webkit-user-select:text;user-select:text"></p>
   <button id="forget" style="width:100%;background:#3a1d1d">نسيان هذا التلفزيون</button>
 </details>
 
@@ -149,7 +150,7 @@
       } else if (m.event === 'ms.channel.unauthorized') {
         setStatus(false, 'مرفوض'); toast('التلفزيون رفض الاتصال — اسمح للآيفون من التلفزيون');
       } else if (m.event === 'ed.installedApp.get') {
-        apps = {}; types = {}; ((m.data && m.data.data) || []).forEach(function (a) { apps[a.appId] = a.name; types[a.appId] = a.app_type; }); renderApps();
+        apps = {}; types = {}; ((m.data && m.data.data) || []).forEach(function (a) { apps[a.appId] = a.name; types[a.appId] = a.app_type; }); renderApps(); showDebug(m.data);
       } else if (m.event === 'ms.remote.imeStart' || m.event === 'ms.remote.imeUpdate') {
         imeNote(true);
       } else if (m.event === 'ms.remote.imeEnd') {
@@ -206,6 +207,11 @@
     this.selectedIndex = 0;
     if (id) { launch(id); toast('فتح ' + label); }
   });
+  function showDebug(d) {
+    var names = Object.keys(apps).map(function (id) { return apps[id] + ' = ' + id; });
+    document.getElementById('debug').textContent = 'TV apps: ' + names.length + (names.length ? '\n' + names.join('\n') : '\n' + JSON.stringify(d).slice(0, 300));
+    document.getElementById('debug').style.whiteSpace = 'pre-line';
+  }
   function imeNote(live) { var n = document.getElementById('imeNote'); n.className = live ? 'live' : ''; n.textContent = live ? 'كيبورد التلفزيون مفتوح — اكتب الآن' : 'افتح خانة كتابة على التلفزيون (بحث مثلاً) ثم اكتب هنا.'; }
 
   // Touch pad: swipe = arrows, tap = OK, long swipe repeats.
