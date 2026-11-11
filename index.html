@@ -41,6 +41,7 @@
   #imeNote.live { color:var(--ok); }
   #apps { display:grid; grid-template-columns:repeat(4,1fr); gap:10px; }
   #apps button { font-size:12px; padding:14px 4px; min-height:56px; line-height:1.2; }
+  #appPick { width:100%; font:inherit; font-size:17px; color:var(--ink); background:var(--btn); border:0; border-radius:14px; padding:14px; -webkit-appearance:none; appearance:none; text-align:center; }
   #apps button.cf { background:#3a3a3c; font-weight:600; }
   details { background:var(--pad); border-radius:14px; padding:10px 14px; }
   summary { color:var(--dim); font-size:14px; }
@@ -81,6 +82,7 @@
 </div>
 <div id="imeNote">افتح خانة كتابة على التلفزيون (بحث مثلاً) ثم اكتب هنا.</div>
 
+<select id="appPick" aria-label="التطبيقات"></select>
 <div id="apps"></div>
 
 <details>
@@ -107,6 +109,8 @@
   var NAME = btoa('iPhone Remote');
   var CLEANFRAME = 'i6LoO8wbEB.CleanFrame';
   // Shortcut order; matched against the TV's installed apps by name.
+  var PICK = ['WATCH IT', 'Disney+', 'OSN+', 'Shahid', 'Yango Play', 'Apple TV', 'Prime Video', 'YouTube'];
+  var BUTTONS = ['Netflix', 'المتصفح'];
   var FAV = [
     ['Netflix', /^netflix/i], ['Shahid', /shahid/i], ['Prime Video', /prime\s*video/i], ['Disney+', /disney/i],
     ['OSN+', /^osn/i], ['Apple TV', /^apple\s*tv$/i], ['WATCH IT', /watch\s*it/i], ['YouTube', /^youtube$/i],
@@ -186,11 +190,22 @@
   function renderApps() {
     var box = document.getElementById('apps'); box.innerHTML = '';
     var cf = document.createElement('button'); cf.className = 'cf'; cf.textContent = 'CleanFrame'; cf.onclick = function () { launch(CLEANFRAME); }; box.appendChild(cf);
-    FAV.forEach(function (f) {
-      var id = findApp(f[0]); if (!id) return;
-      var b = document.createElement('button'); b.textContent = f[0]; b.onclick = function () { launch(id); toast('فتح ' + f[0]); }; box.appendChild(b);
+    BUTTONS.forEach(function (label) {
+      var id = findApp(label); if (!id) return;
+      var b = document.createElement('button'); b.textContent = label; b.onclick = function () { launch(id); toast('فتح ' + label); }; box.appendChild(b);
     });
+    var pick = document.getElementById('appPick'), html = '<option value="">التطبيقات ▾</option>';
+    PICK.forEach(function (label) {
+      var id = findApp(label);
+      html += '<option value="' + (id || '') + '"' + (id ? '' : ' disabled') + '>' + label + (id ? '' : ' (غير مثبت)') + '</option>';
+    });
+    pick.innerHTML = html;
   }
+  document.getElementById('appPick').addEventListener('change', function () {
+    var id = this.value, label = this.options[this.selectedIndex].text;
+    this.selectedIndex = 0;
+    if (id) { launch(id); toast('فتح ' + label); }
+  });
   function imeNote(live) { var n = document.getElementById('imeNote'); n.className = live ? 'live' : ''; n.textContent = live ? 'كيبورد التلفزيون مفتوح — اكتب الآن' : 'افتح خانة كتابة على التلفزيون (بحث مثلاً) ثم اكتب هنا.'; }
 
   // Touch pad: swipe = arrows, tap = OK, long swipe repeats.
