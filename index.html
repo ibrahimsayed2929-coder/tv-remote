@@ -110,7 +110,12 @@
   var NAME = btoa('iPhone Remote');
   var CLEANFRAME = 'i6LoO8wbEB.CleanFrame';
   // Shortcut order; matched against the TV's installed apps by name.
-  var PICK = ['WATCH IT', 'Disney+', 'OSN+', 'Shahid', 'Yango Play', 'Apple TV', 'Prime Video', 'YouTube'];
+  // Real app IDs read from this TV (sdb applist, 2026-11-11).
+  var KNOWN = { 'Netflix': 'org.tizen.netflix-app', 'Shahid': 'Ggl33q588H.MBC', 'Prime Video': 'org.tizen.primevideo',
+    'Disney+': 'Di0N6xZMEA.disneyplus', 'OSN+': 'BlDC3WXVuw.sample', 'Apple TV': 'com.samsung.tv.aria-video',
+    'WATCH IT': 'J5PGJgxrjt.WatchIT', 'YouTube': '9Ur5IzDKqV.TizenYouTube', 'Yango Play': 'yvoS9TN5KY.YangoSpark',
+    'STARZPLAY': 'd5y9d1orz6.starz', 'Live TV': 'org.tizen.tv-viewer', 'المتصفح': 'org.tizen.browser' };
+  var PICK = ['WATCH IT', 'Disney+', 'OSN+', 'Shahid', 'Yango Play', 'Apple TV', 'Prime Video', 'YouTube', 'STARZPLAY', 'Live TV'];
   var BUTTONS = ['Netflix', 'المتصفح'];
   var FAV = [
     ['Netflix', /^netflix/i], ['Shahid', /shahid/i], ['Prime Video', /prime\s*video/i], ['Disney+', /disney/i],
@@ -170,7 +175,7 @@
   function endText() { send({ method: 'ms.remote.control', params: { TypeOfRemote: 'SendInputEnd' } }); }
   // Web apps (type 2) use DEEP_LINK, native apps (type 4) NATIVE_LAUNCH; unknown apps also get the REST launch.
   function launch(appId, meta) {
-    var type = types[appId], action = type === 4 ? 'NATIVE_LAUNCH' : 'DEEP_LINK';
+    var type = types[appId], action = (type === 4 || /^(org\.tizen|com\.samsung)\./.test(appId)) ? 'NATIVE_LAUNCH' : 'DEEP_LINK';
     var data = { appId: appId, action_type: action }; if (meta) data.metaTag = meta;
     send({ method: 'ms.channel.emit', params: { event: 'ed.apps.launch', to: 'host', data: data } });
     if (!type && !meta) {
@@ -179,14 +184,13 @@
   }
   function browserId() {
     for (var id in apps) if (/^(internet|browser|samsung internet|الإنترنت|انترنت|إنترنت)$/i.test(apps[id])) return id;
-    return '3201907018807';
+    return 'org.tizen.browser';
   }
   function loadApps() { send({ method: 'ms.channel.emit', params: { event: 'ed.installedApp.get', to: 'host' } }); }
   function findApp(label) {
     var re = null; FAV.forEach(function (f) { if (f[0] === label) re = f[1]; });
-    if (label === 'المتصفح') return browserId();
     for (var id in apps) if (re && re.test(apps[id])) return id;
-    return null;
+    return KNOWN[label] || null;
   }
   function renderApps() {
     var box = document.getElementById('apps'); box.innerHTML = '';
